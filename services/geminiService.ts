@@ -15,7 +15,8 @@ const predictionSchema = {
             description: "The name of the potential medical condition.",
           },
           confidence: {
-            type: Type.INTEGER,
+            // FIX: Changed from Type.INTEGER to Type.NUMBER to allow for floating point confidence values.
+            type: Type.NUMBER,
             description: "A confidence score from 0 to 100 on how likely the condition is, based on the provided symptoms.",
           },
           description: {
@@ -37,13 +38,8 @@ const predictionSchema = {
 export const getDiseasePrediction = async (
   symptoms: string[],
   otherSymptoms: string,
-  apiKey: string,
 ): Promise<PredictionResult> => {
-  const trimmedApiKey = apiKey.trim();
-  if (!trimmedApiKey) {
-    throw new Error("API key is missing");
-  }
-  const ai = new GoogleGenAI({ apiKey: trimmedApiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     Analyze the following symptoms and provide a list of 3 to 5 potential medical conditions.
@@ -58,7 +54,7 @@ export const getDiseasePrediction = async (
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
+      contents: { parts: [{ text: prompt }] },
       config: {
         responseMimeType: "application/json",
         responseSchema: predictionSchema,
@@ -66,7 +62,7 @@ export const getDiseasePrediction = async (
       },
     });
 
-    const jsonText = response.text?.trim();
+    const jsonText = response.text.trim();
     
     if (!jsonText) {
       console.error("The model returned an empty response.", response);

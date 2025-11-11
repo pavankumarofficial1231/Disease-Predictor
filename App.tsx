@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { getDiseasePrediction } from './services/geminiService';
 import type { PredictionResult } from './types';
 import { SYMPTOM_LIST } from './constants';
@@ -7,14 +7,43 @@ import ResultDisplay from './components/ResultDisplay';
 import Disclaimer from './components/Disclaimer';
 import { Spinner } from './components/ui/Spinner';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/Card';
+import ApiKeySelector from './components/ApiKeySelector';
+
+// FIX: Removed conflicting global type declaration for `window.aistudio` to resolve a compilation error.
+// The type is expected to be provided by the execution environment.
 
 const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>('');
+  const [isKeyReady, setIsKeyReady] = useState<boolean>(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [otherSymptoms, setOtherSymptoms] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
+
+  useEffect(() => {
+    const checkKey = async () => {
+      try {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setIsKeyReady(hasKey);
+      } catch (e) {
+        console.error("Error checking for API key:", e);
+        setIsKeyReady(false);
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleSelectKey = async () => {
+    setApiKeyError(null);
+    try {
+      await window.aistudio.openSelectKey();
+      setIsKeyReady(true);
+    } catch (e) {
+      console.error("Error opening key selector:", e);
+      setApiKeyError("Could not open the API key selector. Please try again.");
+    }
+  };
 
   const handleToggleSymptom = (symptom: string) => {
     setSelectedSymptoms(prev =>
@@ -35,14 +64,18 @@ const App: React.FC = () => {
     setPredictionResult(null);
 
     try {
-      const result = await getDiseasePrediction(selectedSymptoms, otherSymptoms, apiKey);
+      // FIX: Create a new GoogleGenAI instance right before making an API call.
+      const result = await getDiseasePrediction(selectedSymptoms, otherSymptoms);
       setPredictionResult(result);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
       const lowerCaseMessage = errorMessage.toLowerCase();
       
       if (lowerCaseMessage.includes("api key not valid") || lowerCaseMessage.includes("requested entity was not found") || lowerCaseMessage.includes("api key is missing")) {
-        setError("Configuration Error: The API key you provided is invalid. Please check the key and ensure there are no extra spaces, then try again.");
+        setApiKeyError("Your API key appears to be invalid. Please select a different key.");
+        setIsKeyReady(false);
+      } else if (lowerCaseMessage.includes("model is overloaded")) {
+        setError("The prediction service is currently experiencing high traffic. Please wait a moment and try again.");
       } else {
         setError(errorMessage);
       }
@@ -50,7 +83,11 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSymptoms, otherSymptoms, apiKey]);
+  }, [selectedSymptoms, otherSymptoms]);
+
+  if (!isKeyReady) {
+    return <ApiKeySelector onSelectKey={handleSelectKey} error={apiKeyError} />;
+  }
 
 
   return (
@@ -67,28 +104,6 @@ const App: React.FC = () => {
 
         <main className="space-y-8">
           <Disclaimer />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuration</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <label htmlFor="api-key" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                API Key
-              </label>
-              <input
-                id="api-key"
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your API key here"
-                className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                Your API key is used only for this session and is not stored. An API key from a compatible model provider is required.
-              </p>
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader>
@@ -124,7 +139,7 @@ const App: React.FC = () => {
           <div className="text-center">
             <button
               onClick={handleSubmit}
-              disabled={isLoading || !apiKey}
+              disabled={isLoading}
               className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 text-lg font-semibold text-white rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 focus:outline-none focus:ring-4 focus:ring-cyan-300 dark:focus:ring-cyan-800 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
             >
               {isLoading ? (
