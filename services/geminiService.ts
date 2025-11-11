@@ -65,18 +65,29 @@ export const getDiseasePrediction = async (
       },
     });
 
-    const jsonText = response.text.trim();
-    const result = JSON.parse(jsonText) as PredictionResult;
+    const jsonText = response.text?.trim();
     
-    // Sort predictions by confidence in descending order
-    if (result.predictions) {
-      result.predictions.sort((a, b) => b.confidence - a.confidence);
+    if (!jsonText) {
+      console.error("The model returned an empty response.", response);
+      throw new Error("The model's response was empty. This might be due to a content safety policy or an internal error.");
     }
 
-    return result;
+    try {
+      const result = JSON.parse(jsonText) as PredictionResult;
+      
+      // Sort predictions by confidence in descending order
+      if (result.predictions) {
+        result.predictions.sort((a, b) => b.confidence - a.confidence);
+      }
+
+      return result;
+    } catch (parseError) {
+      console.error("Failed to parse JSON response:", jsonText);
+      throw new Error("The model returned an invalid format. Could not parse the prediction data.");
+    }
 
   } catch (error) {
-    console.error("Error fetching or parsing prediction:", error);
+    console.error("Error fetching prediction:", error);
     // Re-throw the original error so the caller can inspect it
     throw error;
   }

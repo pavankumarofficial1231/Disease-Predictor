@@ -15,7 +15,7 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onSelectKey, error }) =
         </CardHeader>
         <CardContent>
           <p className="text-slate-600 dark:text-slate-400 mb-6">
-            To use this application, you need to select a Google Gemini API key. 
+            To use this application, you need to select an API key. 
             Your key is used only for this session and is not stored.
           </p>
           {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}

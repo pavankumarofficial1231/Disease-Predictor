@@ -38,11 +38,13 @@ const App: React.FC = () => {
       const result = await getDiseasePrediction(selectedSymptoms, otherSymptoms, apiKey);
       setPredictionResult(result);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message.toLowerCase() : '';
-      if (errorMessage.includes("api key not valid") || errorMessage.includes("requested entity was not found") || errorMessage.includes("api key is missing")) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+      const lowerCaseMessage = errorMessage.toLowerCase();
+      
+      if (lowerCaseMessage.includes("api key not valid") || lowerCaseMessage.includes("requested entity was not found") || lowerCaseMessage.includes("api key is missing")) {
         setError("Configuration Error: The API key you provided is invalid. Please check the key and try again.");
       } else {
-        setError('Failed to get prediction. The model may be overloaded. Please try again later.');
+        setError(errorMessage);
       }
       console.error(err);
     } finally {
@@ -72,7 +74,7 @@ const App: React.FC = () => {
             </CardHeader>
             <CardContent>
               <label htmlFor="api-key" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Google Gemini API Key
+                API Key
               </label>
               <input
                 id="api-key"
@@ -83,10 +85,7 @@ const App: React.FC = () => {
                 className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                Your API key is used only for this session and is not stored. You can get a key from{' '}
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">
-                  Google AI Studio
-                </a>.
+                Your API key is used only for this session and is not stored. An API key from a compatible model provider is required.
               </p>
             </CardContent>
           </Card>
@@ -162,7 +161,7 @@ const App: React.FC = () => {
         </main>
 
         <footer className="text-center mt-12 text-sm text-slate-500 dark:text-slate-400">
-          <p>Powered by Google Gemini. Not for medical use.</p>
+          <p>Powered by a predictive model. Not for medical use.</p>
         </footer>
       </div>
     </div>
