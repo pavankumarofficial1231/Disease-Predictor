@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { getDiseasePrediction } from './services/geminiService';
 import type { PredictionResult } from './types';
 import { SYMPTOM_LIST } from './constants';
@@ -8,78 +8,13 @@ import Disclaimer from './components/Disclaimer';
 import { Spinner } from './components/ui/Spinner';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/Card';
 
-// New inline component for the banner
-const ApiKeyBanner: React.FC<{ onSelectKey: () => void; error?: string | null }> = ({ onSelectKey, error }) => (
-  <div className="bg-cyan-50 dark:bg-cyan-900/30 border-l-4 border-cyan-500 text-cyan-800 dark:text-cyan-200 p-4 rounded-lg mb-6 shadow-md" role="alert">
-    <div className="flex">
-        <div className="py-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 7h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m-6 0H7a2 2 0 01-2-2V9a2 2 0 012-2h2m0-4h2a2 2 0 012 2v2H9V7a2 2 0 012-2zm0 8h2a2 2 0 012 2v2H9v-2a2 2 0 012-2z" />
-            </svg>
-        </div>
-        <div className="ml-3 flex-grow">
-          <p className="font-bold">API Key Required</p>
-          <p className="text-sm">Please select an API key to enable the symptom predictor.</p>
-          {error && <p className="text-red-500 text-sm mt-1 font-semibold">{error}</p>}
-        </div>
-    </div>
-    <div className="mt-3 flex justify-end items-center">
-        <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-xs underline hover:text-blue-500 mr-4">
-            Billing Information
-        </a>
-        <button
-            onClick={onSelectKey}
-            className="py-2 px-4 text-sm font-semibold text-white rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 focus:outline-none focus:ring-4 focus:ring-cyan-300 dark:focus:ring-cyan-800 transition-all duration-300 transform hover:scale-105"
-        >
-            Select API Key
-        </button>
-    </div>
-  </div>
-);
-
 const App: React.FC = () => {
-  const [isReady, setIsReady] = useState<boolean>(false);
-  const [initError, setInitError] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
+  const [apiKey, setApiKey] = useState<string>('');
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [otherSymptoms, setOtherSymptoms] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
-  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let attempts = 0;
-    const checkInterval = setInterval(() => {
-      if (typeof window.aistudio !== 'undefined' && window.aistudio) {
-        setIsReady(true);
-        clearInterval(checkInterval);
-      } else {
-        attempts++;
-        if (attempts > 10) { // Wait for up to 1 second
-          setInitError('Could not connect to the application environment. Please try refreshing the page.');
-          clearInterval(checkInterval);
-        }
-      }
-    }, 100);
-
-    return () => clearInterval(checkInterval);
-  }, []);
-
-  useEffect(() => {
-    if (isReady) {
-      const checkApiKey = async () => {
-        try {
-          const keyStatus = await window.aistudio.hasSelectedApiKey();
-          setHasApiKey(keyStatus);
-        } catch (e) {
-          console.error("Error checking for API key:", e);
-          setInitError("Could not verify API key status. Please refresh the page.");
-        }
-      };
-      checkApiKey();
-    }
-  }, [isReady]);
 
   const handleToggleSymptom = (symptom: string) => {
     setSelectedSymptoms(prev =>
@@ -89,22 +24,9 @@ const App: React.FC = () => {
     );
   };
 
-  const handleSelectKey = async () => {
-    setError(null);
-    setApiKeyError(null);
-    try {
-      await window.aistudio.openSelectKey();
-      // Assume success and update UI immediately to avoid race conditions.
-      setHasApiKey(true);
-    } catch (selectKeyError) {
-      console.error("Error opening key selector:", selectKeyError);
-      // User may have closed the dialog. The banner will just remain.
-    }
-  };
-
   const handleSubmit = useCallback(async () => {
-    if (!hasApiKey) {
-      setError('Please select an API key before getting a prediction.');
+    if (!apiKey.trim()) {
+      setError('Please enter your API key to get a prediction.');
       return;
     }
     if (selectedSymptoms.length === 0 && otherSymptoms.trim() === '') {
@@ -114,21 +36,17 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    setApiKeyError(null);
     setPredictionResult(null);
 
     try {
-      const result = await getDiseasePrediction(selectedSymptoms, otherSymptoms);
+      const result = await getDiseasePrediction(selectedSymptoms, otherSymptoms, apiKey);
       setPredictionResult(result);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
       const lowerCaseMessage = errorMessage.toLowerCase();
       
-      if (lowerCaseMessage.includes("api key not valid") || lowerCaseMessage.includes("requested entity was not found") || lowerCaseMessage.includes("api key is missing")) {
-        const keyErrorMsg = "Your API key seems invalid or was not found. Please select a new one.";
-        setError(keyErrorMsg);
-        setApiKeyError(keyErrorMsg);
-        setHasApiKey(false);
+      if (lowerCaseMessage.includes("api key not valid") || lowerCaseMessage.includes("api key is missing") || lowerCaseMessage.includes("requested entity was not found")) {
+        setError("Your API key seems invalid. Please check it and try again.");
       } else if (lowerCaseMessage.includes("model is overloaded")) {
         setError("The prediction service is currently experiencing high traffic. Please wait a moment and try again.");
       } else {
@@ -138,27 +56,9 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSymptoms, otherSymptoms, hasApiKey]);
+  }, [selectedSymptoms, otherSymptoms, apiKey]);
 
-  if (initError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-         <div className="bg-red-100 dark:bg-red-900/30 border-l-4 border-red-500 text-red-800 dark:text-red-200 p-6 rounded-lg shadow-md max-w-md w-full text-center" role="alert">
-            <h2 className="font-bold text-lg mb-2">Initialization Failed</h2>
-            <p>{initError}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isReady || hasApiKey === null) {
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-            <Spinner className="h-10 w-10 text-blue-500" />
-            <p className="text-slate-500 dark:text-slate-400 mt-4 text-lg">Initializing Application...</p>
-        </div>
-    );
-  }
+  const isApiKeySet = apiKey.trim() !== '';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
@@ -174,14 +74,49 @@ const App: React.FC = () => {
 
         <main className="space-y-8">
           <Disclaimer />
+          
+           <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-slate-800 dark:text-slate-100">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500 text-white font-bold">1</span>
+                  <span>Provide API Key</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <p className="text-slate-600 dark:text-slate-400">
+                      Please enter your Google AI API key. This is required to power the symptom analysis model and is not stored.
+                  </p>
+                  <input
+                    id="api-key-input"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => {
+                      setApiKey(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    placeholder="Enter your Gemini API Key"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    aria-label="Gemini API Key"
+                  />
+                  <div className="flex justify-end pt-2">
+                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-sm underline hover:text-blue-500">
+                          Get an API Key from Google AI Studio
+                      </a>
+                  </div>
+              </CardContent>
+           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Enter Your Symptoms</CardTitle>
+               <CardTitle className="flex items-center gap-3 text-slate-800 dark:text-slate-100">
+                <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isApiKeySet ? 'bg-cyan-500' : 'bg-slate-400'} text-white font-bold transition-colors duration-300`}>
+                  2
+                </span>
+                <span>Enter Your Symptoms</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              {!hasApiKey && <ApiKeyBanner onSelectKey={handleSelectKey} error={apiKeyError} />}
-              <fieldset disabled={!hasApiKey} className="space-y-6 transition-opacity duration-300 disabled:opacity-50">
+              <fieldset disabled={!isApiKeySet} className="space-y-6 transition-opacity duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                     Common Symptoms
@@ -212,7 +147,7 @@ const App: React.FC = () => {
           <div className="text-center">
             <button
               onClick={handleSubmit}
-              disabled={isLoading || !hasApiKey}
+              disabled={isLoading || !isApiKeySet}
               className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 text-lg font-semibold text-white rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 focus:outline-none focus:ring-4 focus:ring-cyan-300 dark:focus:ring-cyan-800 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
             >
               {isLoading ? (

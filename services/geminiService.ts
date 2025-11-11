@@ -15,7 +15,6 @@ const predictionSchema = {
             description: "The name of the potential medical condition.",
           },
           confidence: {
-            // FIX: Changed from Type.INTEGER to Type.NUMBER to allow for floating point confidence values.
             type: Type.NUMBER,
             description: "A confidence score from 0 to 100 on how likely the condition is, based on the provided symptoms.",
           },
@@ -38,8 +37,12 @@ const predictionSchema = {
 export const getDiseasePrediction = async (
   symptoms: string[],
   otherSymptoms: string,
+  apiKey: string,
 ): Promise<PredictionResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  if (!apiKey) {
+    throw new Error("API key is missing. Please provide a valid API key.");
+  }
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     Analyze the following symptoms and provide a list of 3 to 5 potential medical conditions.
@@ -72,7 +75,6 @@ export const getDiseasePrediction = async (
     try {
       const result = JSON.parse(jsonText) as PredictionResult;
       
-      // Sort predictions by confidence in descending order
       if (result.predictions) {
         result.predictions.sort((a, b) => b.confidence - a.confidence);
       }
@@ -85,7 +87,6 @@ export const getDiseasePrediction = async (
 
   } catch (error) {
     console.error("Error fetching prediction:", error);
-    // Re-throw the original error so the caller can inspect it
     throw error;
   }
 };
