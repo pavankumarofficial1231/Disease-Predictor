@@ -1,12 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { PredictionResult } from '../types';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const predictionSchema = {
   type: Type.OBJECT,
   properties: {
@@ -44,6 +38,12 @@ export const getDiseasePrediction = async (
   symptoms: string[],
   otherSymptoms: string
 ): Promise<PredictionResult> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable is not set");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
   const prompt = `
     Analyze the following symptoms and provide a list of 3 to 5 potential medical conditions.
     

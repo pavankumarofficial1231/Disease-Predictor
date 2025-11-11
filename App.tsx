@@ -36,7 +36,11 @@ const App: React.FC = () => {
       const result = await getDiseasePrediction(selectedSymptoms, otherSymptoms);
       setPredictionResult(result);
     } catch (err) {
-      setError('Failed to get prediction. The model may be overloaded. Please try again later.');
+      if (err instanceof Error && err.message.includes("API_KEY")) {
+        setError('Configuration Error: The API key is not set. Please ensure it is configured correctly.');
+      } else {
+        setError('Failed to get prediction. The model may be overloaded. Please try again later.');
+      }
       console.error(err);
     } finally {
       setIsLoading(false);
