@@ -42,7 +42,7 @@ const App: React.FC = () => {
       const lowerCaseMessage = errorMessage.toLowerCase();
       
       if (lowerCaseMessage.includes("api key not valid") || lowerCaseMessage.includes("requested entity was not found") || lowerCaseMessage.includes("api key is missing")) {
-        setError("Configuration Error: The API key you provided is invalid. Please check the key and try again.");
+        setError("Configuration Error: The API key you provided is invalid. Please check the key and ensure there are no extra spaces, then try again.");
       } else {
         setError(errorMessage);
       }

@@ -39,10 +39,11 @@ export const getDiseasePrediction = async (
   otherSymptoms: string,
   apiKey: string,
 ): Promise<PredictionResult> => {
-  if (!apiKey) {
+  const trimmedApiKey = apiKey.trim();
+  if (!trimmedApiKey) {
     throw new Error("API key is missing");
   }
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: trimmedApiKey });
 
   const prompt = `
     Analyze the following symptoms and provide a list of 3 to 5 potential medical conditions.
