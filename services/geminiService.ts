@@ -36,13 +36,13 @@ const predictionSchema = {
 
 export const getDiseasePrediction = async (
   symptoms: string[],
-  otherSymptoms: string
+  otherSymptoms: string,
+  apiKey: string,
 ): Promise<PredictionResult> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable is not set");
+  if (!apiKey) {
+    throw new Error("API key is missing");
   }
-
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     Analyze the following symptoms and provide a list of 3 to 5 potential medical conditions.
@@ -77,6 +77,7 @@ export const getDiseasePrediction = async (
 
   } catch (error) {
     console.error("Error fetching or parsing prediction:", error);
-    throw new Error("Failed to communicate with the model.");
+    // Re-throw the original error so the caller can inspect it
+    throw error;
   }
 };
